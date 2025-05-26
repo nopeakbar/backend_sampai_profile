@@ -1,16 +1,18 @@
-const express = require("express");
-const router = express.Router();
-const authenticate = require("../middleware/authMiddleware");
-const {
+// src/routes/exchangeRoutes.js
+import express from 'express'
+import {authMiddleware} from '../middleware/authMiddleware.js'
+import {
   requestExchange,
   getReceivedExchanges,
   getMyExchangeRequests,
-  updateExchangeStatus,
-} = require("../controllers/exchangeController");
+  updateExchangeStatus
+} from '../controllers/exchangeController.js'
 
-router.post("/", authenticate, requestExchange);
-router.get("/received", authenticate, getReceivedExchanges);
-router.get("/sent", authenticate, getMyExchangeRequests);
-router.put("/:id", authenticate, updateExchangeStatus);
+const router = express.Router()
 
-module.exports = router;
+router.post('/',        authMiddleware, requestExchange)
+router.get('/received', authMiddleware, getReceivedExchanges)
+router.get('/sent',     authMiddleware, getMyExchangeRequests)
+router.put('/:id',      authMiddleware, updateExchangeStatus)
+
+export default router

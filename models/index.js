@@ -1,16 +1,23 @@
-const User = require("./User");
-const Book = require("./Book");
-const Exchange = require("./Exchange");
+import sequelize from '../config/database.js';
+import User from './User.js';
+import Book from './Book.js';
+import Exchange from './Exchange.js';
+import ExchangeHistory from './ExchangeHistory.js';
 
-// Book ke User
-Book.belongsTo(User, { foreignKey: "userId" });
-User.hasMany(Book, { foreignKey: "userId" });
+// User ↔ Book
+Book.belongsTo(User, { foreignKey: 'userId', as: 'owner' });
+User.hasMany(Book, { foreignKey: 'userId', as: 'books' });
 
-// Exchange ke Book
-Exchange.belongsTo(Book, { as: "targetBook", foreignKey: "targetBookId" });
-Exchange.belongsTo(Book, { as: "offeredBook", foreignKey: "offeredBookId" });
+// Exchange ↔ Book
+Exchange.belongsTo(Book, { foreignKey: 'offeredBookId', as: 'offeredBook' });
+Exchange.belongsTo(Book, { foreignKey: 'requestedBookId', as: 'requestedBook' });
 
-// Exchange ke User
-Exchange.belongsTo(User, { as: "requester", foreignKey: "requesterId" });
+// Exchange ↔ User
+Exchange.belongsTo(User, { foreignKey: 'requesterId', as: 'requester' });
+Exchange.belongsTo(User, { foreignKey: 'ownerId', as: 'owner' });
 
-module.exports = { User, Book, Exchange };
+// ExchangeHistory ↔ Exchange
+Exchange.hasOne(ExchangeHistory, { foreignKey: 'exchangeRequestId', as: 'history' });
+ExchangeHistory.belongsTo(Exchange, { foreignKey: 'exchangeRequestId', as: 'parentExchange' });
+
+export { sequelize, User, Book, Exchange, ExchangeHistory };

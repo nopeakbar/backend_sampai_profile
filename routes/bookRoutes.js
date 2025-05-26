@@ -1,18 +1,21 @@
-const express = require("express");
-const router = express.Router();
-const {
+// src/routes/bookRoutes.js
+import express from 'express'
+import {authMiddleware} from '../middleware/authMiddleware.js'
+import {
   addBook,
   getAllBooks,
   getMyBooks,
   updateBook,
-  deleteBook
-} = require("../controllers/bookController");
-const authenticate = require("../middleware/authMiddleware");
+  deleteBook,
+  getBookDetail
+} from '../controllers/bookController.js'
 
-router.post("/", authenticate, addBook);
-router.get("/", getAllBooks);
-router.get("/me", authenticate, getMyBooks);
-router.put("/:id", authenticate, updateBook);
-router.delete("/:id", authenticate, deleteBook);
+const router = express.Router()
 
-module.exports = router;
+router.post('/',           authMiddleware, addBook)
+router.get('/',            getAllBooks)
+router.get('/me',          authMiddleware, getMyBooks)
+router.get('/:id',         getBookDetail)
+router.put('/:id',         authMiddleware, updateBook)
+router.delete('/:id',      authMiddleware, deleteBook)
+export default router

@@ -1,98 +1,155 @@
-const Exchange = require("../models/Exchange");
-const Book = require("../models/Book");
+import Exchange from '../models/Exchange.js';
+import Book     from '../models/Book.js';
+import User     from '../models/User.js';
 
-// Membuat permintaan tukar buku
-exports.requestExchange = async (req, res) => {
-  const { offeredBookId, requestedBookId } = req.body;
-  const userId = req.user.id;
+/**
+ * POST /exchanges
+ * Buat permintaan tukar buku
+ */
+export const requestExchange = async (req, res) => {
+  const requesterId    = req.userId;
+  const { offeredBookId, requestedBookId, messages, location, meetingDatetime } = req.body;
 
   try {
-    // Cek buku milik user yang tawarkan
-    const offeredBook = await Book.findOne({ where: { id: offeredBookId, userId } });
-    if (!offeredBook)
-      return res.status(400).json({ message: "Buku yang ditawarkan tidak ditemukan atau bukan milik Anda" });
+    // verifikasi buku yang ditawarkan milik requester
+    const offeredBook = await Book.findOne({
+      where: { id: offeredBookId, userId: requesterId }
+    });
+    if (!offeredBook) {
+      return res.status(400).json({
+        status: 'Error',
+        message: 'Buku yang ditawarkan tidak ditemukan atau bukan milik Anda'
+      });
+    }
 
-    // Cek buku yang diminta ada
+    // verifikasi buku diminta ada & ambil owner
     const requestedBook = await Book.findByPk(requestedBookId);
-    if (!requestedBook)
-      return res.status(400).json({ message: "Buku yang diminta tidak ditemukan" });
+    if (!requestedBook) {
+      return res.status(400).json({
+        status: 'Error',
+        message: 'Buku yang diminta tidak ditemukan'
+      });
+    }
+    const ownerId = requestedBook.userId;
 
-    // Buat permintaan tukar
     const exchange = await Exchange.create({
-      requesterId: userId,
+      requesterId,
+      ownerId,
       offeredBookId,
       requestedBookId,
-      status: "pending",
+      messages: messages || null,
+      location: location || null,
+      meetingDatetime: meetingDatetime || null,
+      status: 'pending'
     });
 
-    res.status(201).json({ message: "Permintaan tukar berhasil dibuat", exchange });
+    return res.status(201).json({
+      status: 'Success',
+      message: 'Permintaan tukar berhasil dibuat',
+      data: exchange
+    });
   } catch (error) {
-    res.status(500).json({ message: "Gagal membuat permintaan tukar", error: error.message });
+    console.error(error);
+    return res.status(500).json({
+      status: 'Error',
+      message: 'Gagal membuat permintaan tukar',
+      error: error.message
+    });
   }
 };
 
-// Mendapatkan permintaan tukar yang diterima oleh user (buku diminta milik user)
-exports.getReceivedExchanges = async (req, res) => {
-  const userId = req.user.id;
-
+/**
+ * GET /exchanges/received
+ * Ambil semua request masuk (pending) untuk buku user
+ */
+export const getReceivedExchanges = async (req, res) => {
+  const ownerId = req.userId;
   try {
     const exchanges = await Exchange.findAll({
-      where: { status: "pending" },
+      where: { ownerId, status: 'pending' },
       include: [
-        { model: Book, as: "requestedBook", where: { userId } },
-        { model: Book, as: "offeredBook" },
+        { model: Book, as: 'offeredBook' },
+        { model: Book, as: 'requestedBook' },
+        { model: User, as: 'requester', attributes: ['id','username','avatar_url'] }
       ],
+      order: [['createdAt','DESC']]
     });
-    res.status(200).json({ exchanges });
+    return res.status(200).json({ status: 'Success', data: exchanges });
   } catch (error) {
-    res.status(500).json({ message: "Gagal mengambil permintaan tukar", error: error.message });
+    console.error(error);
+    return res.status(500).json({
+      status: 'Error',
+      message: 'Gagal mengambil permintaan tukar masuk',
+      error: error.message
+    });
   }
 };
 
-// Mendapatkan permintaan tukar yang dibuat oleh user
-exports.getMyExchangeRequests = async (req, res) => {
-  const userId = req.user.id;
-
+/**
+ * GET /exchanges/sent
+ * Ambil semua request yang dibuat user (sudah atau belum diproses)
+ */
+export const getMyExchangeRequests = async (req, res) => {
+  const requesterId = req.userId;
   try {
     const exchanges = await Exchange.findAll({
-      where: { requesterId: userId },
+      where: { requesterId },
       include: [
-        { model: Book, as: "offeredBook" },
-        { model: Book, as: "requestedBook" },
+        { model: Book, as: 'offeredBook' },
+        { model: Book, as: 'requestedBook' },
+        { model: User, as: 'owner', attributes: ['id','username','avatar_url'] }
       ],
+      order: [['createdAt','DESC']]
     });
-    res.status(200).json({ exchanges });
+    return res.status(200).json({ status: 'Success', data: exchanges });
   } catch (error) {
-    res.status(500).json({ message: "Gagal mengambil permintaan tukar", error: error.message });
+    console.error(error);
+    return res.status(500).json({
+      status: 'Error',
+      message: 'Gagal mengambil permintaan tukar Anda',
+      error: error.message
+    });
   }
 };
 
-// Update status permintaan tukar (accept / reject)
-exports.updateExchangeStatus = async (req, res) => {
-  const exchangeId = req.params.id;
-  const userId = req.user.id;
-  const { status } = req.body; // expected: "accepted" or "rejected"
+/**
+ * PUT /exchanges/:id
+ * Update status permintaan tukar (accept/decline)
+ */
+export const updateExchangeStatus = async (req, res) => {
+  const exchangeId = Number(req.params.id);
+  const userId     = req.userId;
+  const { status } = req.body;
 
-  if (!["accepted", "rejected"].includes(status)) {
-    return res.status(400).json({ message: "Status harus 'accepted' atau 'rejected'" });
+  if (!['accepted','declined'].includes(status)) {
+    return res.status(400).json({
+      status: 'Error',
+      message: "Status harus 'accepted' atau 'declined'"
+    });
   }
 
   try {
-    const exchange = await Exchange.findByPk(exchangeId, {
-      include: [{ model: Book, as: "requestedBook" }],
-    });
-    if (!exchange) return res.status(404).json({ message: "Permintaan tukar tidak ditemukan" });
-
-    // Pastikan user yang update status adalah pemilik buku yang diminta
-    if (exchange.requestedBook.userId !== userId) {
-      return res.status(403).json({ message: "Anda tidak berhak mengubah status ini" });
+    const exchange = await Exchange.findByPk(exchangeId);
+    if (!exchange) {
+      return res.status(404).json({ status: 'Error', message: 'Permintaan tukar tidak ditemukan' });
+    }
+    if (exchange.ownerId !== userId) {
+      return res.status(403).json({ status: 'Error', message: 'Anda tidak berhak mengubah status ini' });
     }
 
     exchange.status = status;
     await exchange.save();
-
-    res.status(200).json({ message: "Status permintaan tukar berhasil diupdate", exchange });
+    return res.status(200).json({
+      status: 'Success',
+      message: 'Status permintaan tukar berhasil diupdate',
+      data: exchange
+    });
   } catch (error) {
-    res.status(500).json({ message: "Gagal mengupdate status tukar", error: error.message });
+    console.error(error);
+    return res.status(500).json({
+      status: 'Error',
+      message: 'Gagal mengupdate status tukar',
+      error: error.message
+    });
   }
 };

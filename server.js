@@ -1,33 +1,31 @@
-const express = require("express");
-const cors = require("cors");
-const sequelize = require("./config/database");
-require("dotenv").config();
+import 'dotenv/config'
+import './models/index.js';           // ❗ register semua association
+import express from 'express';
+import cors from 'cors';
+import { sequelize } from './models/index.js';
+import authRoutes from './routes/authRoutes.js';
+import userRoutes from './routes/userRoutes.js';
+import bookRoutes from './routes/bookRoutes.js';
+import exchangeRoutes from './routes/exchangeRoutes.js';
+import exchangeHitoryRoutes from './routes/exchangeHitoryRoutes.js'
+import protectedRoutes from './routes/protectedRoutes.js';
 
-const authRoutes = require("./routes/authRoutes");
-const protectedRoutes = require("./routes/protectedRoutes");
-const bookRoutes = require("./routes/bookRoutes");
-const exchangeRoutes = require("./routes/exchangeRoutes"); // Pastikan file ini ada!
-const userRoutes = require("./routes/userRoutes");
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-app.use(cors());
+app.use(cors({ origin: 'http://localhost:5173', credentials: true }));
 app.use(express.json());
 
-app.use("/api/auth", authRoutes);           // Auth: register, login
-app.use("/api", protectedRoutes);           // Contoh: /api/secret
-app.use("/api/books", bookRoutes);          // CRUD buku
-app.use("/api/exchanges", exchangeRoutes);  // Fitur tukar buku
-app.use("/api/users", userRoutes);
+app.use('/api/auth', authRoutes);
+app.use('/api/users', userRoutes);
+app.use('/api/books', bookRoutes);
+app.use('/api/exchanges', exchangeRoutes);
+app.use('/api/exchanges/history', exchangeHitoryRoutes);
+app.use('/api', protectedRoutes);
 
-
-app.get("/", (req, res) => {
-  res.send("Welcome to Buku Tukar API");
-});
+app.get('/', (_req, res) => res.send('Welcome API'));
 
 sequelize.sync().then(() => {
-  console.log("✅ Database connected...");
+  console.log('✅ Database connected...');
   app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
-}).catch(err => {
-  console.error("❌ Error connecting to DB:", err);
 });

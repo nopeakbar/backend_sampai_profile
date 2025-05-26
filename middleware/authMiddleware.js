@@ -1,23 +1,21 @@
-const jwt = require("jsonwebtoken");
+import 'dotenv/config';
+import jwt from 'jsonwebtoken';
 
-const authMiddleware = (req, res, next) => {
+
+export const authMiddleware = (req, res, next) => {
   const authHeader = req.headers.authorization;
-
-  if (!authHeader)
-    return res.status(401).json({ message: "Token tidak ditemukan" });
-
-  const token = authHeader.split(" ")[1]; // Bearer <token>
-
-  if (!token)
-    return res.status(401).json({ message: "Token tidak ditemukan" });
+  if (!authHeader) return res.status(401).json({ message: 'Token tidak ditemukan' });
+  const token = authHeader.split(' ')[1];
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = decoded; // bisa dipakai di route selanjutnya
+  // authMiddleware.js
+    const decoded = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
+    req.userId = decoded.id;        
+
     next();
-  } catch (err) {
-    res.status(401).json({ message: "Token tidak valid" });
+  } catch {
+    return res.status(401).json({ message: 'Token tidak valid atau kadaluarsa' });
   }
 };
 
-module.exports = authMiddleware;
+export default authMiddleware
